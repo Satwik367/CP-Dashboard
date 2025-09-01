@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CP Dashboard - Upcoming Contests</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #1e1e2e;
+      color: #fff;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      color: #00ffcc;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      padding: 12px;
+      border: 1px solid #444;
+      text-align: center;
+    }
+    th {
+      background: #333;
+    }
+    tr:nth-child(even) {
+      background: #2a2a40;
+    }
+    .countdown {
+      font-weight: bold;
+      color: #ffcc00;
+    }
+  </style>
+</head>
+<body>
+  <h1>Upcoming Codeforces Contests</h1>
+  <table id="contestTable">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Start Time</th>
+        <th>Duration</th>
+        <th>Countdown</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    async function fetchContests() {
+      try {
+        const res = await fetch("https://codeforces.com/api/contest.list");
+        const data = await res.json();
+
+        if (data.status !== "OK") throw new Error("API Error");
+
+        const contests = data.result
+          .filter(c => c.phase === "BEFORE")  // only upcoming
+          .slice(0, 10); // show next 10
+
+        const tbody = document.querySelector("#contestTable tbody");
+        tbody.innerHTML = "";
+
+        contests.forEach(contest => {
+          const start = new Date(contest.startTimeSeconds * 1000);
+          const duration = contest.durationSeconds / 3600; // in hours
+
+          const row = document.createElement("tr");
+
+          row.innerHTML = `
+            <td>${contest.name}</td>
+            <td>${start.toLocaleString()}</td>
+            <td>${duration} hrs</td>
+            <td class="countdown" id="c${contest.id}"></td>
+          `;
+
+          tbody.appendChild(row);
+
+          // Countdown update
+          setInterval(() => {
+            const now = new Date();
+            const diff = (start - now) / 1000;
+            if (diff <= 0) {
+              document.getElementById(`c${contest.id}`).innerText = "Started!";
+            } else {
+              const hrs = Math.floor(diff / 3600);
+              const mins = Math.floor((diff % 3600) / 60);
+              const secs = Math.floor(diff % 60);
+              document.getElementById(`c${contest.id}`).innerText =
+                `${hrs}h ${mins}m ${secs}s`;
+            }
+          }, 1000);
+        });
+      } catch (err) {
+        console.error(err);
+        document.querySelector("#contestTable tbody").innerHTML =
+          `<tr><td colspan="4">Failed to load contests.</td></tr>`;
+      }
+    }
+
+    fetchContests();
+  </script>
+</body>
+</html>
