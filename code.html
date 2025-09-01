@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CP Dashboard - Upcoming Contests</title>
+  <title>CP Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -12,7 +13,7 @@
       margin: 0;
       padding: 20px;
     }
-    h1 {
+    h1, h2 {
       text-align: center;
       color: #00ffcc;
     }
@@ -36,10 +37,36 @@
       font-weight: bold;
       color: #ffcc00;
     }
+    #ratingSection {
+      margin-top: 40px;
+    }
+    #ratingChart {
+      max-width: 700px;
+      margin: auto;
+      background: #2a2a40;
+      padding: 20px;
+      border-radius: 10px;
+    }
+    input {
+      padding: 8px;
+      margin: 10px;
+      border-radius: 5px;
+      border: none;
+    }
+    button {
+      padding: 8px 12px;
+      border: none;
+      border-radius: 5px;
+      background: #00ffcc;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
-  <h1>Upcoming Codeforces Contests</h1>
+  <h1>Competitive Programming Dashboard</h1>
+
+  <!-- Contest Section -->
+  <h2>Upcoming Codeforces Contests</h2>
   <table id="contestTable">
     <thead>
       <tr>
@@ -52,7 +79,19 @@
     <tbody></tbody>
   </table>
 
+  <!-- Rating Section -->
+  <div id="ratingSection">
+    <h2>Codeforces Rating Tracker</h2>
+    <div style="text-align:center;">
+      <input type="text" id="cfHandle" placeholder="Enter Codeforces Handle">
+      <button onclick="fetchRating()">Get Rating</button>
+    </div>
+    <p id="ratingInfo" style="text-align:center; font-size:18px;"></p>
+    <canvas id="ratingChart"></canvas>
+  </div>
+
   <script>
+    // ---------- Fetch Upcoming Contests ----------
     async function fetchContests() {
       try {
         const res = await fetch("https://codeforces.com/api/contest.list");
@@ -61,8 +100,8 @@
         if (data.status !== "OK") throw new Error("API Error");
 
         const contests = data.result
-          .filter(c => c.phase === "BEFORE")  // only upcoming
-          .slice(0, 10); // show next 10
+          .filter(c => c.phase === "BEFORE")
+          .slice(0, 10);
 
         const tbody = document.querySelector("#contestTable tbody");
         tbody.innerHTML = "";
@@ -82,7 +121,7 @@
 
           tbody.appendChild(row);
 
-          // Countdown update
+          // Countdown
           setInterval(() => {
             const now = new Date();
             const diff = (start - now) / 1000;
@@ -104,6 +143,70 @@
       }
     }
 
+    // ---------- Fetch User Rating ----------
+    let chart; // store chart instance
+    async function fetchRating() {
+      const handle = document.getElementById("cfHandle").value.trim();
+      if (!handle) return;
+
+      try {
+        const res = await fetch(`https://codeforces.com/api/user.rating?handle=${handle}`);
+        const data = await res.json();
+
+        if (data.status !== "OK") throw new Error("Invalid handle");
+
+        const contests = data.result;
+        if (contests.length === 0) {
+          document.getElementById("ratingInfo").innerText = "No contests found for this handle.";
+          return;
+        }
+
+        const labels = contests.map(c => c.contestName);
+        const ratings = contests.map(c => c.newRating);
+
+        const latest = ratings[ratings.length - 1];
+        document.getElementById("ratingInfo").innerText =
+          `${handle}'s latest rating: ${latest}`;
+
+        // Destroy old chart before creating new one
+        if (chart) chart.destroy();
+
+        const ctx = document.getElementById("ratingChart").getContext("2d");
+        chart = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: labels,
+            datasets: [{
+              label: "Rating Progress",
+              data: ratings,
+              borderColor: "#00ffcc",
+              backgroundColor: "rgba(0,255,204,0.2)",
+              tension: 0.3,
+              fill: true,
+              pointRadius: 4,
+              pointBackgroundColor: "#fff"
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { labels: { color: "#fff" } }
+            },
+            scales: {
+              x: { ticks: { color: "#fff" } },
+              y: { ticks: { color: "#fff" } }
+            }
+          }
+        });
+
+      } catch (err) {
+        console.error(err);
+        document.getElementById("ratingInfo").innerText =
+          "Failed to load rating. Check handle.";
+      }
+    }
+
+    // Load contests on page start
     fetchContests();
   </script>
 </body>
